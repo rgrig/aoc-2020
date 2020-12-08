@@ -306,12 +306,74 @@ fn day7(input: &str) -> Result<()> {
             &mut cache,
             &|xs| xs.iter().fold(1, |total, (weight, c)| total + weight * c),
             &sg,
-        )
+        ) - 1
     };
     println!("part1: {}", part1);
     println!("part2: {}", part2);
     Ok(())
 }
+
+fn d8_execute(program: &Vec<(&str, i32)>) -> Result<(i32, i32)> {
+    let mut ic : i32 = 0;
+    let mut acc = 0;
+    let mut seen = HashSet::new();
+    let n = program.len() as i32;
+    while 0 <= ic && ic < n {
+        if seen.contains(&ic) {
+            return Ok((ic, acc))
+        }
+        seen.insert(ic);
+        let (op, v) = &program[ic as usize];
+        match *op {
+            "nop" => ic += 1,
+            "jmp" => ic += v,
+            "acc" => {
+                acc += v;
+                ic += 1
+            },
+            _ => panic!("unknown instruction"),
+        }
+    }
+    Ok((ic, acc))
+}
+
+fn day8(input: &str) -> Result<()> {
+    let mut program: Vec<(&str, i32)> = input
+        .lines()
+        .map(|l| l.split_whitespace().collect())
+        .map(|ws: Vec<&str>| (ws[0], ws[1].parse().unwrap()))
+        .collect();
+    let (_, acc1) = d8_execute(&program)?;
+    let n = program.len() as i32;
+    let mut i = 0;
+    let acc2 = loop {
+        match program[i as usize].0 {
+            "jmp" => {
+                program[i as usize] = ("nop", program[i as usize].1);
+                let (m, acc2) = d8_execute(&program)?;
+                if m == n {
+                    break acc2;
+                }
+                program[i as usize] = ("jmp", program[i as usize].1)
+            },
+            "nop" => {
+                program[i as usize] = ("jmp", program[i as usize].1);
+                let (m, acc2) = d8_execute(&program)?;
+                if m == n {
+                    break acc2;
+                }
+                program[i as usize] = ("nop", program[i as usize].1)
+
+            },
+            _ => (),
+        }
+        i += 1;
+    };
+    println!("part1: {}", acc1);
+    println!("part2: {}", acc2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -323,6 +385,7 @@ fn main() -> Result<()> {
         5 => day5(&input),
         6 => day6(&input),
         7 => day7(&input),
+        8 => day8(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
