@@ -314,13 +314,13 @@ fn day7(input: &str) -> Result<()> {
 }
 
 fn d8_execute(program: &Vec<(&str, i32)>) -> Result<(i32, i32)> {
-    let mut ic : i32 = 0;
+    let mut ic: i32 = 0;
     let mut acc = 0;
     let mut seen = HashSet::new();
     let n = program.len() as i32;
     while 0 <= ic && ic < n {
         if seen.contains(&ic) {
-            return Ok((ic, acc))
+            return Ok((ic, acc));
         }
         seen.insert(ic);
         let (op, v) = &program[ic as usize];
@@ -330,7 +330,7 @@ fn d8_execute(program: &Vec<(&str, i32)>) -> Result<(i32, i32)> {
             "acc" => {
                 acc += v;
                 ic += 1
-            },
+            }
             _ => panic!("unknown instruction"),
         }
     }
@@ -355,7 +355,7 @@ fn day8(input: &str) -> Result<()> {
                     break acc2;
                 }
                 program[i as usize] = ("jmp", program[i as usize].1)
-            },
+            }
             "nop" => {
                 program[i as usize] = ("jmp", program[i as usize].1);
                 let (m, acc2) = d8_execute(&program)?;
@@ -363,14 +363,86 @@ fn day8(input: &str) -> Result<()> {
                     break acc2;
                 }
                 program[i as usize] = ("nop", program[i as usize].1)
-
-            },
+            }
             _ => (),
         }
         i += 1;
     };
     println!("part1: {}", acc1);
     println!("part2: {}", acc2);
+    Ok(())
+}
+
+fn d9_get(h: &HashMap<i64, i32>, x: i64) -> i32 {
+    match h.get(&x) {
+        Some(count) => *count,
+        None => 0,
+    }
+}
+
+fn d9_inc(h: &mut HashMap<i64, i32>, x: i64) {
+    h.insert(x, d9_get(h, x) + 1);
+}
+
+fn d9_dec(h: &mut HashMap<i64, i32>, x: i64) {
+    let v = d9_get(h, x) - 1;
+    if v == 0 {
+        h.remove(&x);
+    } else {
+        h.insert(x, v);
+    }
+}
+
+/** The extra work to lower complexity is just for fun, and completely unneeded 
+for the given problem sizes. */
+fn day9(input: &str) -> Result<()> {
+    let numbers: Vec<i64> = input
+        .split_whitespace()
+        .map(|x| x.parse().unwrap())
+        .collect();
+    let window = 25;
+    let mut sums = HashMap::new();
+    for j in 0..window {
+        for i in 0..j {
+            d9_inc(&mut sums, numbers[i] + numbers[j]);
+        }
+    }
+    let magic = {
+        // O(window * numbers.len())
+        let mut k = window;
+        loop {
+            if d9_get(&sums, numbers[k]) == 0 {
+                break numbers[k];
+            }
+            for i in k - window + 1..k {
+                d9_dec(&mut sums, numbers[k - window] + numbers[i]);
+                d9_inc(&mut sums, numbers[k] + numbers[i]);
+            }
+            k += 1;
+        }
+    };
+    let weakness = {
+        // O(numbers.len())
+        let mut position_of_sum = HashMap::new();
+        position_of_sum.insert(0, 0);
+        let (i, j) = {
+            let mut k = 0;
+            let mut sum = 0;
+            loop {
+                match position_of_sum.get(&(sum - magic)) {
+                    Some(i) => break (*i, k),
+                    None => {
+                        sum += numbers[k];
+                        k += 1;
+                        position_of_sum.insert(sum, k);
+                    }
+                }
+            }
+        };
+        numbers[i..j].iter().min().ok_or("d9")? + numbers[i..j].iter().max().ok_or("d9")?
+    };
+    println!("part1: {}", magic);
+    println!("part2: {}", weakness);
     Ok(())
 }
 
@@ -386,6 +458,7 @@ fn main() -> Result<()> {
         6 => day6(&input),
         7 => day7(&input),
         8 => day8(&input),
+        9 => day9(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
