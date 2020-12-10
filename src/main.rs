@@ -393,7 +393,7 @@ fn d9_dec(h: &mut HashMap<i64, i32>, x: i64) {
     }
 }
 
-/** The extra work to lower complexity is just for fun, and completely unneeded 
+/** The extra work to lower complexity is just for fun, and completely unneeded
 for the given problem sizes. */
 fn day9(input: &str) -> Result<()> {
     let numbers: Vec<i64> = input
@@ -446,6 +446,42 @@ fn day9(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn day10(input: &str) -> Result<()> {
+    let xs: Vec<i32> = {
+        let mut ys: Vec<i32> = input
+            .split_whitespace()
+            .map(|x| x.parse().unwrap())
+            .collect();
+        ys.push(0);
+        ys.push(3 + *ys.iter().max().ok_or("d10")?);
+        ys.sort_unstable();
+        ys
+    };
+    let part1 = {
+        let diffs: Vec<i32> = (1..xs.len()).map(|i| xs[i] - xs[i - 1]).collect();
+        let c1 = diffs.iter().filter(|x| **x == 1).count();
+        let c3 = diffs.iter().filter(|x| **x == 3).count();
+        c1 * c3
+    };
+    let part2 = {
+        let mut count: Vec<i64> = vec![1];
+        for i in 1..xs.len() {
+            let mut c = 0;
+            let mut k = 1;
+            while k <= i && xs[i] - xs[i - k] <= 3 {
+                c += count[i - k];
+                k += 1;
+            }
+            count.push(c);
+        }
+        count[count.len() - 1]
+    };
+
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -459,6 +495,7 @@ fn main() -> Result<()> {
         7 => day7(&input),
         8 => day8(&input),
         9 => day9(&input),
+        10 => day10(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
