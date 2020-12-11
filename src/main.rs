@@ -482,6 +482,91 @@ fn day10(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn d11_count_adjacent(map: &Vec<String>, x: usize, y: usize) -> i32 {
+    let x = x as i32;
+    let y = y as i32;
+    let m = map.len() as i32;
+    let n = map[0].len() as i32;
+    let mut r = 0;
+    for i in x - 1..=x + 1 {
+        for j in y - 1..=y + 1 {
+            if 0 <= i
+                && i < m
+                && 0 <= j
+                && j < n
+                && (i != x || j != y)
+                && map[i as usize].as_bytes()[j as usize] == '#' as u8
+            {
+                r += 1;
+            }
+        }
+    }
+    r
+}
+
+fn d11_count_visible(map: &Vec<String>, x: usize, y: usize) -> i32 {
+    let x = x as i32;
+    let y = y as i32;
+    let m = map.len() as i32;
+    let n = map[0].len() as i32;
+    let mut r = 0;
+    for dx in -1..=1 {
+        for dy in -1..=1 {
+            if dx == 0 && dy == 0 { continue }
+            for k in 1.. {
+                let xx = x + k * dx;
+                let yy = y + k * dy;
+                if !(0<=xx && xx<m && 0<=yy && yy<n) {break}
+                match map[xx as usize].as_bytes()[yy as usize] as char {
+                    'L' => break,
+                    '#' => { r+=1; break }
+                    _ => (),
+                }
+            }
+        }
+    }
+    r
+}
+
+fn d11_solve<C>(map: Vec<String>, limit: i32, count: C) -> Result<i32>
+where
+    C: Fn(&Vec<String>, usize, usize) -> i32,
+{
+    let mut new_map = vec![];
+    for i in 0..map.len() {
+        let mut new_row = String::new();
+        for j in 0..map[i].len() {
+            let neighbors = count(&map, i, j);
+            new_row.push(if map[i].as_bytes()[j] == 'L' as u8 && neighbors == 0 {
+                '#'
+            } else if map[i].as_bytes()[j] == '#' as u8 && neighbors >= limit {
+                'L'
+            } else {
+                map[i].as_bytes()[j] as char
+            });
+        }
+        new_map.push(new_row);
+    }
+    if new_map == map {
+        let r: usize = map
+            .iter()
+            .map(|l| l.chars().filter(|c| *c == '#').count())
+            .sum();
+        Ok(r as i32)
+    } else {
+        d11_solve(new_map, limit, count)
+    }
+}
+
+fn day11(input: &str) -> Result<()> {
+    let map: Vec<String> = input.lines().map(|x| String::from(x)).collect();
+    let part1 = d11_solve(map.clone(), 4, d11_count_adjacent)?;
+    let part2 = d11_solve(map.clone(), 5, d11_count_visible)?;
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -496,6 +581,7 @@ fn main() -> Result<()> {
         8 => day8(&input),
         9 => day9(&input),
         10 => day10(&input),
+        11 => day11(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
