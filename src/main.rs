@@ -512,14 +512,21 @@ fn d11_count_visible(map: &Vec<String>, x: usize, y: usize) -> i32 {
     let mut r = 0;
     for dx in -1..=1 {
         for dy in -1..=1 {
-            if dx == 0 && dy == 0 { continue }
+            if dx == 0 && dy == 0 {
+                continue;
+            }
             for k in 1.. {
                 let xx = x + k * dx;
                 let yy = y + k * dy;
-                if !(0<=xx && xx<m && 0<=yy && yy<n) {break}
+                if !(0 <= xx && xx < m && 0 <= yy && yy < n) {
+                    break;
+                }
                 match map[xx as usize].as_bytes()[yy as usize] as char {
                     'L' => break,
-                    '#' => { r+=1; break }
+                    '#' => {
+                        r += 1;
+                        break;
+                    }
                     _ => (),
                 }
             }
