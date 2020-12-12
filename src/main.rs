@@ -1,5 +1,6 @@
 use error_chain::error_chain;
 use std::collections::{HashMap, HashSet};
+use std::f64::consts::PI;
 use std::hash::Hash;
 use structopt::StructOpt;
 
@@ -574,6 +575,80 @@ fn day11(input: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Clone, Debug)]
+struct V2 {
+    x: f64,
+    y: f64,
+}
+
+impl V2 {
+    fn rotate(&self, alpha: f64) -> Self {
+        let x = alpha.cos() * self.x - alpha.sin() * self.y;
+        let y = alpha.sin() * self.x + alpha.cos() * self.y;
+        Self { x, y }
+    }
+    fn add(&self, other: &Self) -> Self {
+        let x = self.x + other.x;
+        let y = self.y + other.y;
+        Self { x, y }
+    }
+    fn norm1(&self) -> f64 {
+        self.x.abs() + self.y.abs()
+    }
+    fn scale(&self, lambda: f64) -> Self {
+        let x = lambda * self.x;
+        let y = lambda * self.y;
+        Self { x, y }
+    }
+}
+
+fn d12_go(instructions: &Vec<(char, i32)>, part2: bool) -> f64 {
+    let mut position = V2 { x: 0.0, y: 0.0 };
+    let mut waypoint = if part2 {
+        V2 { x: 10., y: 1. }
+    } else {
+        V2 { x: 1.0, y: 0.0 }
+    };
+    let absolute: HashMap<char, V2> = [
+        ('N', V2 { x: 0., y: 1. }),
+        ('S', V2 { x: 0., y: -1. }),
+        ('E', V2 { x: 1., y: 0. }),
+        ('W', V2 { x: -1., y: 0. }),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+    for (op, num) in instructions {
+        let num = *num as f64;
+        {
+            let w = if part2 { &mut waypoint } else { &mut position };
+            absolute.get(op).map(|v| *w = w.add(&v.scale(num)));
+        }
+        match op {
+            'L' => waypoint = waypoint.rotate(num * PI / 180.),
+            'R' => waypoint = waypoint.rotate(-num * PI / 180.),
+            'F' => position = position.add(&waypoint.scale(num)),
+            _ => (),
+        }
+        if false {
+            println!("{:?}", position)
+        };
+    }
+    position.norm1()
+}
+
+fn day12(input: &str) -> Result<()> {
+    let instructions: Vec<(char, i32)> = input
+        .split_whitespace()
+        .map(|l| (l[..1].parse().unwrap(), l[1..].parse().unwrap()))
+        .collect();
+    let part1 = d12_go(&instructions, false);
+    let part2 = d12_go(&instructions, true);
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -589,6 +664,7 @@ fn main() -> Result<()> {
         9 => day9(&input),
         10 => day10(&input),
         11 => day11(&input),
+        12 => day12(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
