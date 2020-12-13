@@ -6,7 +6,6 @@ import sys
 dx = 10
 dy = 1
 nod = 'ENWS'
-don = [0,90,180,270]
 dxr = [+1,0,-1,0]
 dyr = [0,+1,0,-1]
 

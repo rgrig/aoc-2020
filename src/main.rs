@@ -649,6 +649,56 @@ fn day12(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn gcd(a: i64, b: i64) -> i64 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
+}
+
+fn day13(input: &str) -> Result<()> {
+    let (start, constraints) = {
+        let ls: Vec<&str> = input.lines().collect();
+        let start: i64 = ls[0].parse()?;
+        let constraints: Vec<(i64, i64)> = ls[1]
+            .split(',')
+            .enumerate()
+            .map(|(i, x)| {
+                if x == "x" {
+                    None
+                } else {
+                    Some((i as i64, x.parse().unwrap()))
+                }
+            })
+            .filter_map(|ix| ix)
+            .collect();
+        (start, constraints)
+    };
+    let part1 = {
+        let (wait, m) = constraints
+            .iter()
+            .map(|(_, m)| (m - start % m, m))
+            .min()
+            .ok_or("d13")?;
+        wait * m
+    };
+    let part2 = {
+        let mut ans: i64 = 0;
+        let mut lcm: i64 = 1;
+        for (k, m) in constraints {
+            while (ans + k) % m != 0 {
+                ans += lcm;
+            }
+            lcm = lcm / gcd(lcm, m) * m;
+        }
+        ans
+    };
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -665,6 +715,7 @@ fn main() -> Result<()> {
         10 => day10(&input),
         11 => day11(&input),
         12 => day12(&input),
+        13 => day13(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
