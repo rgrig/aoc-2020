@@ -699,6 +699,71 @@ fn day13(input: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
+enum D14I {
+    Mask(String),
+    Write(i64, i64),
+}
+
+fn d14_solve(instructions: &Vec<D14I>, part2: bool) -> i64 {
+    let mut memory : HashMap<i64, i64> = HashMap::new();
+    let mut m0 : i64 = 0;
+    let mut m1 : i64 = 0;
+    for instr in instructions {
+        match instr {
+            D14I::Mask(mstr) => {
+                m0 = 0;
+                m1 = 0;
+                for c in mstr.chars() {
+                    m0 = 2 * m0;
+                    m1 = 2 * m1 + 1;
+                    match c {
+                        '0' => if !part2 { m1 -= 1 },
+                        '1' => m0 += 1,
+                        'X' => if part2 { m0 += 1; m1 -= 1 },
+                        _ => panic!("d14"),
+                    }
+                }
+            },
+            D14I::Write(addr, val) => {
+                if part2 {
+                    let mut m1c = m1;
+                    loop {
+                        memory.insert((addr | m0) & m1c, *val);
+                        if m1c == (1<<36)-1 {
+                            break
+                        }
+                        m1c = (m1c + 1) | m1;
+                    }
+                } else {
+                    memory.insert(*addr, (val | m0) & m1);
+                }
+            },
+        }
+    }
+    memory.values().sum()
+}
+
+fn day14(input: &str) -> Result<()> {
+    let instructions = {
+        let mut instructions = vec![];
+        for l in input.lines() {
+            let ws: Vec<&str> = l.split(|c| "[] ".contains(c)).collect();
+            if ws[0] == "mask" {
+                instructions.push(D14I::Mask(String::from(ws[2])));
+            } else {
+                instructions.push(D14I::Write(ws[1].parse().unwrap(), ws[4].parse().unwrap()));
+            }
+        }
+        instructions
+    };
+    let part1 = d14_solve(&instructions, false);
+    let part2 = d14_solve(&instructions, true);
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -716,6 +781,7 @@ fn main() -> Result<()> {
         11 => day11(&input),
         12 => day12(&input),
         13 => day13(&input),
+        14 => day14(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
