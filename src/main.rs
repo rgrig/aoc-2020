@@ -779,8 +779,8 @@ fn d15_solve(xs: &Vec<i32>, limit: usize) -> usize {
         .enumerate()
         .map(|(i, x)| (*x as usize, i))
         .collect();
-    let mut now = xs[xs.len()-1] as usize;
-    for i in xs.len()-1..limit-1 {
+    let mut now = xs[xs.len() - 1] as usize;
+    for i in xs.len() - 1..limit - 1 {
         let nxt = match last.get(&now) {
             Some(j) => i - j,
             None => 0,
@@ -804,6 +804,91 @@ fn day15(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn d16_is_valid(ranges: &Vec<i32>, val: i32) -> bool {
+    match ranges.binary_search(&val) {
+        Ok(i) => i % 2 == 0,
+        Err(i) => i % 2 != 0,
+    }
+}
+
+fn day16(input: &str) -> Result<()> {
+    let (fields, your_ticket, nearby_tickets) = {
+        let sections: Vec<&str> = input.split("\n\n").collect();
+        let fields: Vec<Vec<&str>> = sections[0]
+            .lines()
+            .map(|l| l.split(':').collect())
+            .collect();
+        let fields: Vec<(&str, Vec<&str>)> = fields
+            .iter()
+            .map(|v| (v[0], v[1].split("or").collect()))
+            .collect();
+        let fields: HashMap<&str, Vec<(i32, i32)>> = fields
+            .iter()
+            .map(|(f, rs)| {
+                (
+                    *f,
+                    rs.iter()
+                        .map(|r| {
+                            let lh: Vec<&str> = r.split('-').collect();
+                            (lh[0].trim().parse().unwrap(), lh[1].trim().parse().unwrap())
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+        let your_ticket: Vec<&str> = sections[1].lines().collect();
+        let your_ticket: Vec<i32> = your_ticket[1]
+            .split(',')
+            .map(|x| x.parse().unwrap())
+            .collect();
+        let nearby_tickets: Vec<Vec<i32>> = sections[2]
+            .lines()
+            .skip(1)
+            .map(|l| l.split(',').map(|x| x.parse().unwrap()).collect())
+            .collect();
+        (fields, your_ticket, nearby_tickets)
+    };
+    let (part1, _nearby_tickets) = {
+        // playing here: fast validity check isn't really needed
+        let mut ends : Vec<(i32, i32)> = vec![];
+        for lims in fields.values() {
+            for (l, h) in lims {
+                ends.push((l+0,-1));
+                ends.push((h+1,1));
+            }
+        }
+        ends.sort();
+        let mut valid_ranges : Vec<i32> = vec![];
+        let mut count = 0;
+        for (val, typ) in ends {
+            let new_count = count - typ;
+            if (count == 0) != (new_count == 0) {
+                valid_ranges.push(val);
+            }
+            count = new_count;
+        }
+        if valid_ranges.len() % 2 != 0 { panic!("d16"); }
+        let mut ans = 0;
+        let mut valid_tickets = vec![];
+        for t in nearby_tickets {
+            let mut badness = 0;
+            for v in &t {
+                if !d16_is_valid(&valid_ranges, *v) {
+                    badness += v;
+                }
+            }
+            if badness > 0 {
+                ans += badness;
+            } else {
+                valid_tickets.push(t);
+            }
+        }
+        (ans, valid_tickets)
+    };
+    println!("part1: {}", part1);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -823,6 +908,7 @@ fn main() -> Result<()> {
         13 => day13(&input),
         14 => day14(&input),
         15 => day15(&input),
+        16 => day16(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
