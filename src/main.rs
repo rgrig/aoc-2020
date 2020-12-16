@@ -1,5 +1,5 @@
 use error_chain::error_chain;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::f64::consts::PI;
 use std::hash::Hash;
 use structopt::StructOpt;
@@ -848,17 +848,17 @@ fn day16(input: &str) -> Result<()> {
             .collect();
         (fields, your_ticket, nearby_tickets)
     };
-    let (part1, _nearby_tickets) = {
-        // playing here: fast validity check isn't really needed
-        let mut ends : Vec<(i32, i32)> = vec![];
+    let (part1, nearby_tickets) = {
+        // playing here: fast validity check isn't needed
+        let mut ends: Vec<(i32, i32)> = vec![];
         for lims in fields.values() {
             for (l, h) in lims {
-                ends.push((l+0,-1));
-                ends.push((h+1,1));
+                ends.push((l + 0, -1));
+                ends.push((h + 1, 1));
             }
         }
         ends.sort();
-        let mut valid_ranges : Vec<i32> = vec![];
+        let mut valid_ranges: Vec<i32> = vec![];
         let mut count = 0;
         for (val, typ) in ends {
             let new_count = count - typ;
@@ -867,25 +867,69 @@ fn day16(input: &str) -> Result<()> {
             }
             count = new_count;
         }
-        if valid_ranges.len() % 2 != 0 { panic!("d16"); }
+        if valid_ranges.len() % 2 != 0 {
+            panic!("d16");
+        }
         let mut ans = 0;
         let mut valid_tickets = vec![];
         for t in nearby_tickets {
-            let mut badness = 0;
+            let mut bad = false;
             for v in &t {
                 if !d16_is_valid(&valid_ranges, *v) {
-                    badness += v;
+                    ans += v;
+                    bad = true;
                 }
             }
-            if badness > 0 {
-                ans += badness;
-            } else {
+            if !bad {
                 valid_tickets.push(t);
             }
         }
         (ans, valid_tickets)
     };
+    let part2 = {
+        let n = nearby_tickets[0].len();
+        let mut possibilities: Vec<HashSet<&str>> = vec![];
+        for i in 0..n {
+            let mut could_be: HashSet<&str> = fields.keys().map(|x| *x).collect();
+            for t in &nearby_tickets {
+                let x = t[i];
+                could_be.retain(|&f| {
+                    fields
+                        .get(f)
+                        .unwrap()
+                        .iter()
+                        .any(|(l, h)| *l <= x && x <= *h)
+                });
+            }
+            possibilities.push(could_be);
+        }
+        // TODO: Would be fun to implement this similar to UP in SAT.
+        let mut todo : VecDeque<&str> = VecDeque::new();
+        for could_be in &possibilities {
+            if could_be.len() == 1 {
+                todo.push_back(could_be.iter().nth(0).unwrap());
+            }
+        }
+        while let Some(f) = todo.pop_front() {
+            for could_be in &mut possibilities {
+                if could_be.len() > 1 {
+                    could_be.remove(f);
+                    if could_be.len() == 1 {
+                        todo.push_back(could_be.iter().nth(0).unwrap());
+                    }
+                }
+            }
+        }
+        let mut ans : i64 = 1;
+        for i in 0..n {
+            if possibilities[i].iter().nth(0).unwrap().starts_with("departure") {
+                ans *= your_ticket[i] as i64;
+            }
+        }
+        ans
+    };
     println!("part1: {}", part1);
+    println!("part2: {}", part2);
     Ok(())
 }
 
