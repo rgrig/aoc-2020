@@ -904,7 +904,7 @@ fn day16(input: &str) -> Result<()> {
             possibilities.push(could_be);
         }
         // TODO: Would be fun to implement this similar to UP in SAT.
-        let mut todo : VecDeque<&str> = VecDeque::new();
+        let mut todo: VecDeque<&str> = VecDeque::new();
         for could_be in &possibilities {
             if could_be.len() == 1 {
                 todo.push_back(could_be.iter().nth(0).unwrap());
@@ -920,14 +920,115 @@ fn day16(input: &str) -> Result<()> {
                 }
             }
         }
-        let mut ans : i64 = 1;
+        let mut ans: i64 = 1;
         for i in 0..n {
-            if possibilities[i].iter().nth(0).unwrap().starts_with("departure") {
+            if possibilities[i]
+                .iter()
+                .nth(0)
+                .unwrap()
+                .starts_with("departure")
+            {
                 ans *= your_ticket[i] as i64;
             }
         }
         ans
     };
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
+fn d17_start(init: &HashSet<(i8, i8)>, dimension: usize) -> HashSet<Vec<i8>> {
+    init.iter()
+        .map(|(x, y)| {
+            let mut r = vec![0; dimension];
+            r[0] = *x;
+            r[1] = *y;
+            r
+        })
+        .collect()
+}
+
+fn d17_step(prev: HashSet<Vec<i8>>, dimension: usize) -> HashSet<Vec<i8>> {
+    let (min, max) = {
+        let mut min = vec![i8::MAX; dimension];
+        let mut max = vec![i8::MIN; dimension];
+        for i in 0..dimension {
+            for p in &prev {
+                min[i] = min[i].min(p[i] - 1);
+                max[i] = max[i].max(p[i] + 1);
+            }
+        }
+        (min, max)
+    };
+    let mut result = HashSet::new();
+    let mut p = min.clone();
+    loop {
+        let mut neighbors = 0;
+        let mut q: Vec<i8> = vec![-1; dimension];
+        loop {
+            if q.iter().any(|x| *x != 0) {
+                let pq: Vec<i8> = p.iter().zip(q.iter()).map(|(a, b)| a + b).collect();
+                if prev.contains(&pq) {
+                    neighbors += 1
+                }
+            }
+            let mut i = 0;
+            while i < dimension && q[i] == 1 {
+                q[i] = -1;
+                i += 1;
+            }
+            if i < dimension {
+                q[i] += 1;
+            } else {
+                break;
+            }
+        }
+        let active = prev.contains(&p) && (neighbors == 2 || neighbors == 3);
+        let active = active || (!prev.contains(&p) && neighbors == 3);
+        if active {
+            result.insert(p.clone());
+        }
+        let mut i = 0;
+        while i < dimension && p[i] == max[i] {
+            p[i] = min[i];
+            i += 1;
+        }
+        if i < dimension {
+            p[i] += 1;
+        } else {
+            break;
+        }
+    }
+    result
+}
+
+fn d17_solve(init: &HashSet<(i8, i8)>, dimension: usize) -> usize {
+    let mut state = d17_start(init, dimension);
+    for _ in 0..6 {
+        state = d17_step(state, dimension);
+    }
+    state.len()
+}
+
+fn day17(input: &str) -> Result<()> {
+    let active: HashSet<(i8, i8)> = {
+        let mut result = HashSet::new();
+        let mut x = 0;
+        for line in input.lines() {
+            let mut y = 0;
+            for c in line.chars() {
+                if c == '#' {
+                    result.insert((x, y));
+                }
+                y += 1;
+            }
+            x += 1;
+        }
+        result
+    };
+    let part1 = d17_solve(&active, 3);
+    let part2 = d17_solve(&active, 4);
     println!("part1: {}", part1);
     println!("part2: {}", part2);
     Ok(())
@@ -953,6 +1054,7 @@ fn main() -> Result<()> {
         14 => day14(&input),
         15 => day15(&input),
         16 => day16(&input),
+        17 => day17(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
