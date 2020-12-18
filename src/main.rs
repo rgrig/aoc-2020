@@ -1034,6 +1034,68 @@ fn day17(input: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum D18Tok {
+    Open,
+    Close,
+    Add,
+    Mul,
+    Num(i64),
+}
+
+fn d18_atom(expr: &Vec<D18Tok>, i: usize, precedence: bool) -> (i64, usize) {
+    match expr[i] {
+        D18Tok::Open => {
+            let (x, i) = d18_eval(expr, i + 1, precedence);
+            (x, i + 1)
+        }
+        D18Tok::Num(x) => (x, i + 1),
+        _ => panic!("d18"),
+    }
+}
+
+fn d18_eval(expr: &Vec<D18Tok>, i: usize, precedence: bool) -> (i64, usize) {
+    let mut p: i64 = 1;
+    let (mut s, mut i) = d18_atom(expr, i, precedence);
+    while expr[i] != D18Tok::Close {
+        let (x, j) = d18_atom(expr, i + 1, precedence);
+        match expr[i] {
+            D18Tok::Add => s += x,
+            D18Tok::Mul => {
+                if precedence {
+                    p *= s;
+                    s = x;
+                } else {
+                    s *= x
+                }
+            }
+            _ => panic!("d18"),
+        }
+        i = j;
+    }
+    (p * s, i)
+}
+
+fn day18(input: &str) -> Result<()> {
+    let input = String::from("((") + &input.trim().replace("\n", ") + (") + "))";
+    let input = input.replace("(", "( ").replace(")", " )");
+    let input: Vec<D18Tok> = input
+        .split_whitespace()
+        .map(|t| match t {
+            "(" => D18Tok::Open,
+            ")" => D18Tok::Close,
+            "+" => D18Tok::Add,
+            "*" => D18Tok::Mul,
+            x => D18Tok::Num(x.parse().unwrap()),
+        })
+        .collect();
+    let (part1, _) = d18_eval(&input, 1, false);
+    let (part2, _) = d18_eval(&input, 1, true);
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1055,6 +1117,7 @@ fn main() -> Result<()> {
         15 => day15(&input),
         16 => day16(&input),
         17 => day17(&input),
+        18 => day18(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
