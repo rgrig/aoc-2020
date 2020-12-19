@@ -1096,6 +1096,155 @@ fn day18(input: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Clone, Debug)]
+enum D19Rule {
+    N(Vec<usize>),
+    T(char),
+}
+
+type D19I = usize;
+type D19N = usize;
+type D19Grammar = HashMap<D19N, Vec<D19Rule>>;
+type D19Range = (D19I, D19I);
+struct D19Result {
+    known_yes: HashSet<D19N>,
+    known_no: HashSet<D19N>,
+}
+type D19Cache = HashMap<D19Range, D19Result>;
+
+fn d19_parse_rules(input: &str) -> D19Grammar {
+    let mut result = D19Grammar::new();
+    for line in input.lines() {
+        let ws: Vec<&str> = line.split(':').collect();
+        let lhs: D19N = ws[0].parse().unwrap();
+        let mut rhs = vec![];
+        for alt in ws[1].trim().split('|') {
+            let alt = alt.trim();
+            if alt.starts_with("\"") {
+                rhs.push(D19Rule::T(alt.chars().nth(1).unwrap()));
+            } else {
+                rhs.push(D19Rule::N(
+                    alt.split_whitespace().map(|n| n.parse().unwrap()).collect(),
+                ));
+            }
+        }
+        result.insert(lhs, rhs);
+    }
+    result
+}
+
+fn d19_grammar_add_raw(grammar: &mut D19Grammar, lhs: D19N, rhs: D19Rule) {
+    if !grammar.contains_key(&lhs) {
+        grammar.insert(lhs, vec![]);
+    }
+    let r: &mut Vec<D19Rule> = grammar.get_mut(&lhs).unwrap();
+    r.push(rhs);
+}
+
+fn d19_grammar_add(grammar: &mut D19Grammar, last: &mut D19N, lhs: D19N, rhs: D19Rule) {
+    match rhs {
+        D19Rule::T(_) => d19_grammar_add_raw(grammar, lhs, rhs),
+        D19Rule::N(ns) => {
+            let mut l = lhs;
+            for j in 2..ns.len() {
+                *last = *last + 1;
+                d19_grammar_add_raw(grammar, l, D19Rule::N(vec![ns[j - 2], *last]));
+                l = *last;
+            }
+            d19_grammar_add_raw(
+                grammar,
+                l,
+                D19Rule::N(ns.iter().rev().take(2).rev().cloned().collect()),
+            );
+        }
+    }
+}
+
+fn d19_normalize(grammar: D19Grammar) -> D19Grammar {
+    let mut last: D19N = *grammar.keys().max().unwrap();
+    let mut result = D19Grammar::new();
+    for (l, rs) in grammar {
+        for r in rs {
+            d19_grammar_add(&mut result, &mut last, l, r);
+        }
+    }
+    result
+}
+
+fn d19_cyk(
+    grammar: &D19Grammar,
+    text: &str,
+    cache: &mut D19Cache,
+    nonterminal: D19N,
+    range: D19Range,
+) -> Result<bool> {
+    {
+        let range_cache = cache.get_mut(&range).ok_or("d19")?;
+        if range_cache.known_yes.contains(&nonterminal) {
+            return Ok(true);
+        }
+        if range_cache.known_no.contains(&nonterminal) {
+            return Ok(false);
+        }
+    }
+    let mut answer = false;
+    for rule in grammar.get(&nonterminal).unwrap() {
+        match rule {
+            D19Rule::T(c) => {
+                answer |= range.0 + 1 == range.1 && text.chars().nth(range.0).ok_or("d19")? == *c
+            }
+            D19Rule::N(ns) => {
+                assert!(ns.len() == 1 || ns.len() == 2); // no epsilons! otherwise more work needed ...
+                if ns.len() == 1 {
+                    // TODO: This might not terminate, but it does on my data. I should fix it.
+                    answer = answer || d19_cyk(grammar, text, cache, ns[0], range)?;
+                } else {
+                    for k in range.0 + 1..range.1 {
+                        answer = answer
+                            || (d19_cyk(grammar, text, cache, ns[0], (range.0, k))?
+                                && d19_cyk(grammar, text, cache, ns[1], (k, range.1))?);
+                    }
+                }
+            }
+        }
+    }
+    {
+        let range_cache = cache.get_mut(&range).ok_or("d19")?;
+        if answer {
+            range_cache.known_yes.insert(nonterminal);
+        } else {
+            range_cache.known_no.insert(nonterminal);
+        }
+    }
+    Ok(answer)
+}
+
+fn d19_parse_text(rules: &D19Grammar, text: &str) -> bool {
+    let mut cache: D19Cache = D19Cache::new();
+    for i in 0..text.len() {
+        for j in i + 1..=text.len() {
+            cache.insert(
+                (i, j),
+                D19Result {
+                    known_yes: HashSet::new(),
+                    known_no: HashSet::new(),
+                },
+            );
+        }
+    }
+    d19_cyk(rules, text, &mut cache, 0, (0, text.len())).unwrap()
+}
+
+fn day19(input: &str) -> Result<()> {
+    let input: Vec<&str> = input.split("\n\n").collect();
+    let rules = d19_parse_rules(input[0]);
+    let rules = d19_normalize(rules);
+    let data: Vec<&str> = input[1].lines().collect();
+    let answer = data.iter().filter(|d| d19_parse_text(&rules, d)).count();
+    println!("answer: {}", answer);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1118,6 +1267,7 @@ fn main() -> Result<()> {
         16 => day16(&input),
         17 => day17(&input),
         18 => day18(&input),
+        19 => day19(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
