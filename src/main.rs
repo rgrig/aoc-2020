@@ -1200,9 +1200,8 @@ fn d19_cyk(
                     answer = answer || d19_cyk(grammar, text, cache, ns[0], range)?;
                 } else {
                     for k in range.0 + 1..range.1 {
-                        answer = answer
-                            || (d19_cyk(grammar, text, cache, ns[0], (range.0, k))?
-                                && d19_cyk(grammar, text, cache, ns[1], (k, range.1))?);
+                        answer |= d19_cyk(grammar, text, cache, ns[0], (range.0, k))?
+                            && d19_cyk(grammar, text, cache, ns[1], (k, range.1))?;
                     }
                 }
             }
@@ -1245,6 +1244,310 @@ fn day19(input: &str) -> Result<()> {
     Ok(())
 }
 
+type D20TileId = usize;
+type D20Tile = u128;
+type D20TileVariants = [u128; 8];
+
+static D20N: usize = 10;
+
+fn d20_parse_tile(tile: &[&str]) -> D20Tile {
+    let mut r: D20Tile = 0;
+    for i in 0..D20N {
+        for j in 0..D20N {
+            r *= 2;
+            if tile[i][j..j + 1] == *"#" {
+                r += 1
+            }
+        }
+    }
+    r
+}
+
+fn d20_rot(tile: D20Tile) -> D20Tile {
+    let mut result = 0;
+    for i in 0..D20N {
+        for j in 0..D20N {
+            if (tile >> (i * D20N + j)) & 1 != 0 {
+                result |= 1 << ((D20N - j - 1) * D20N + i);
+            }
+        }
+    }
+    result
+}
+
+fn d20_flip(tile: D20Tile) -> D20Tile {
+    let mut result = 0;
+    for i in 0..D20N {
+        for j in 0..D20N {
+            if (tile >> (i * D20N + j)) & 1 != 0 {
+                result |= 1 << (i * D20N + D20N - j - 1);
+            }
+        }
+    }
+    result
+}
+
+fn d20_get_variants(tile: D20Tile) -> D20TileVariants {
+    let mut result: D20TileVariants = [0; 8];
+    let mut i = 0;
+    let mut last = tile;
+    for _ in 0..4 {
+        last = d20_rot(last);
+        result[i] = last;
+        i += 1;
+    }
+    last = d20_flip(last);
+    for _ in 0..4 {
+        result[i] = last;
+        i += 1;
+        last = d20_rot(last);
+    }
+    result
+}
+
+fn d20_bottom(tile: D20Tile) -> usize {
+    (tile & ((1 << D20N) - 1)) as usize
+}
+
+fn d20_reconstruct(
+    tiles: &Vec<Option<D20TileVariants>>,
+    by_border: &Vec<HashSet<D20TileId>>,
+    available: &mut HashSet<D20TileId>,
+    image: &mut Vec<Vec<Option<(D20TileId, usize)>>>,
+    row: usize,
+    col: usize,
+) -> bool {
+    let m = image.len();
+    if row == m {
+        return true;
+    }
+    if col == m {
+        return d20_reconstruct(tiles, by_border, available, image, row + 1, 0);
+    }
+    let top = if row == 0 {
+        None
+    } else {
+        let above = image[row - 1][col].unwrap();
+        Some(d20_bottom(tiles[above.0].unwrap()[above.1]))
+    };
+    let left = if col == 0 {
+        None
+    } else {
+        let prev = image[row][col - 1].unwrap();
+        // right of prev.1 is bottom of variant
+        let variant = 7
+            - (if prev.1 % 4 == 0 {
+                prev.1 + 3
+            } else {
+                prev.1 - 1
+            });
+        Some(d20_bottom(tiles[prev.0].unwrap()[variant]))
+    };
+    // prefilter (not really necessary, but it is 5-6 times faster)
+    let possible: Vec<D20TileId> = {
+        match (top, left) {
+            (None, None) => available.iter().copied().collect(),
+            (Some(top), None) => by_border[top].intersection(&available).copied().collect(),
+            (None, Some(left)) => by_border[left].intersection(&available).copied().collect(),
+            (Some(top), Some(left)) => by_border[top]
+                .intersection(&by_border[left])
+                .copied()
+                .collect::<HashSet<D20TileId>>()
+                .intersection(&available)
+                .copied()
+                .collect(),
+        }
+    };
+    //println!("at ({},{}) consider {:?}", row, col, possible);
+    // recurse
+    for tile_id in possible {
+        available.remove(&tile_id);
+        for variant in 0..8 {
+            if let Some(top) = top {
+                // top of variant is bottom of other
+                let other = 7
+                    - (if variant % 4 < 2 {
+                        variant + 2
+                    } else {
+                        variant - 2
+                    });
+                if top != d20_bottom(tiles[tile_id].unwrap()[other]) {
+                    continue;
+                }
+            }
+            if let Some(left) = left {
+                // left of variant is bottom of other
+                let other = if variant % 4 < 3 {
+                    variant + 1
+                } else {
+                    variant - 3
+                };
+                if left != d20_bottom(tiles[tile_id].unwrap()[other]) {
+                    continue;
+                }
+            }
+            image[row][col] = Some((tile_id, variant));
+            if d20_reconstruct(tiles, by_border, available, image, row, col + 1) {
+                return true;
+            }
+        }
+        available.insert(tile_id);
+    }
+    return false;
+}
+
+fn d20_part2_check(map: &Vec<Vec<char>>) -> usize {
+    let n = map.len();
+    let monster: Vec<Vec<char>> = [
+        "                  # ",
+        "#    ##    ##    ###",
+        " #  #  #  #  #  #   ",
+    ]
+    .iter()
+    .map(|l| l.chars().collect())
+    .collect();
+    let mx = monster.len();
+    let my = monster[0].len();
+    let mut ans = vec![vec![false; n]; n];
+    for i in 0..n {
+        for j in 0..n {
+            if map[i][j] == '#' {
+                ans[i][j] = true;
+            }
+        }
+    }
+    for i in mx..=n {
+        for j in my..=n {
+            let mut ok = true;
+            for x in 0..mx {
+                for y in 0..my {
+                    ok &= monster[x][y] != '#' || map[i - mx + x][j - my + y] == '#';
+                }
+            }
+            if ok {
+                for x in 0..mx {
+                    for y in 0..my {
+                        if monster[x][y] == '#' {
+                            ans[i - mx + x][j - my + y] = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let cnt: usize = ans.iter().map(|l| l.iter().filter(|x| **x).count()).sum();
+    cnt
+}
+
+fn d20_map_rot(map: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    let n = map.len();
+    let mut result = vec![vec!['?'; n]; n];
+    for i in 0..n {
+        for j in 0..n {
+            result[n-j-1][i] = map[i][j];
+        }
+    }
+    result
+}
+
+fn d20_map_flip(map: Vec<Vec<char>>) -> Vec<Vec<char>> {
+    let n = map.len();
+    let mut result = vec![vec!['?'; n]; n];
+    for i in 0..n {
+        for j in 0..n {
+            result[i][n-j-1] = map[i][j];
+        }
+    }
+    result
+}
+
+fn d20_part2(
+    tiles: &Vec<Option<D20TileVariants>>,
+    image: &Vec<Vec<Option<(D20TileId, usize)>>>,
+) -> usize {
+    let n = image.len() * (D20N - 2);
+    let mut map: Vec<Vec<char>> = vec![vec!['.'; n]; n];
+    for i in 0..image.len() {
+        for j in 0..image.len() {
+            let id_variant = image[i][j].unwrap();
+            let t = tiles[id_variant.0].unwrap()[id_variant.1];
+            for x in 1..D20N - 1 {
+                for y in 1..D20N - 1 {
+                    if (t >> ((D20N - x - 1) * D20N + D20N - y - 1)) & 1 != 0 {
+                        map[i * (D20N - 2) + x - 1][j * (D20N - 2) + y - 1] = '#';
+                    }
+                }
+            }
+        }
+    }
+    let mut result = n * n;
+    for _ in 0..4 {
+        map = d20_map_rot(map);
+        result = result.min(d20_part2_check(&map));
+    }
+    map = d20_map_flip(map);
+    for _ in 0..4 {
+        map = d20_map_rot(map);
+        result = result.min(d20_part2_check(&map));
+    }
+    result
+}
+
+fn day20(input: &str) -> Result<()> {
+    let tiles: Vec<(D20TileId, D20Tile)> = input
+        .trim()
+        .split("\n\n")
+        .map(|t| {
+            let ls: Vec<&str> = t.lines().collect();
+            (
+                ls[0]
+                    .replace(":", " ")
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap()
+                    .parse()
+                    .unwrap(),
+                d20_parse_tile(&ls[1..]),
+            )
+        })
+        .collect();
+    let mut all_ids: HashSet<D20TileId> = tiles.iter().map(|(i, _)| i).copied().collect();
+    let tiles: Vec<Option<D20TileVariants>> = {
+        let mut result = vec![None; 1 << 16];
+        for (id, tile) in tiles {
+            result[id] = Some(d20_get_variants(tile));
+        }
+        result
+    };
+    let by_border = {
+        let mut result: Vec<HashSet<D20TileId>> = (0..(1 << 16)).map(|_| HashSet::new()).collect();
+        for i in &all_ids {
+            for v in tiles[*i].unwrap().iter() {
+                result[d20_bottom(*v)].insert(*i);
+            }
+        }
+        result
+    };
+    let m = {
+        let mut m = 0;
+        while m * m < all_ids.len() {
+            m += 1
+        }
+        m
+    };
+    let mut image: Vec<Vec<Option<(D20TileId, usize)>>> = vec![vec![None; m]; m];
+    let found = d20_reconstruct(&tiles, &by_border, &mut all_ids, &mut image, 0, 0);
+    assert!(found, "no solution?");
+    let part1 = image[0][0].unwrap().0
+        * image[0][m - 1].unwrap().0
+        * image[m - 1][0].unwrap().0
+        * image[m - 1][m - 1].unwrap().0;
+    let part2 = d20_part2(&tiles, &image);
+    println!("part1: {}", part1);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1268,6 +1571,7 @@ fn main() -> Result<()> {
         17 => day17(&input),
         18 => day18(&input),
         19 => day19(&input),
+        20 => day20(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
