@@ -1444,7 +1444,7 @@ fn d20_map_rot(map: Vec<Vec<char>>) -> Vec<Vec<char>> {
     let mut result = vec![vec!['?'; n]; n];
     for i in 0..n {
         for j in 0..n {
-            result[n-j-1][i] = map[i][j];
+            result[n - j - 1][i] = map[i][j];
         }
     }
     result
@@ -1455,7 +1455,7 @@ fn d20_map_flip(map: Vec<Vec<char>>) -> Vec<Vec<char>> {
     let mut result = vec![vec!['?'; n]; n];
     for i in 0..n {
         for j in 0..n {
-            result[i][n-j-1] = map[i][j];
+            result[i][n - j - 1] = map[i][j];
         }
     }
     result
@@ -1548,6 +1548,71 @@ fn day20(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn day21(input: &str) -> Result<()> {
+    let input: Vec<String> = input
+        .lines()
+        .map(|l| l.replace(")", "").replace(",", ""))
+        .collect();
+    let menu: Vec<Vec<HashSet<&str>>> = input
+        .iter()
+        .map(|l| {
+            l.split("(contains")
+                .map(|x| x.split_whitespace().collect())
+                .collect()
+        })
+        .collect();
+    let mut by_allergen: HashMap<&str, HashSet<&str>> = HashMap::new();
+    for dish in &menu {
+        let ingredients = &dish[0];
+        let allergens = &dish[1];
+        for a in allergens {
+            match by_allergen.get_mut(a) {
+                Some(i) => *i = i.intersection(ingredients).copied().collect(),
+                None => {
+                    by_allergen.insert(a, ingredients.clone());
+                }
+            }
+        }
+    }
+    let bad = by_allergen
+        .values()
+        .fold(HashSet::new(), |acc, x| acc.union(x).copied().collect());
+    let part1: usize = menu
+        .iter()
+        .map(|d| d[0].iter().filter(|i| !bad.contains(*i)).count())
+        .sum();
+    let mut changed = true;
+    while changed {
+        changed = false;
+        let allergens: Vec<&str> = by_allergen.keys().copied().collect();
+        for a in &allergens {
+            let ws = by_allergen.get(a).unwrap();
+            if ws.len() == 1 {
+                let w = ws.iter().next().unwrap().clone();
+                for b in &allergens {
+                    if a == b {
+                        continue;
+                    }
+                    changed |= by_allergen.get_mut(b).unwrap().remove(w);
+                }
+            }
+        }
+    }
+    let part2 = {
+        let mut allergens: Vec<&str> = by_allergen.keys().copied().collect();
+        allergens.sort();
+        let words: Vec<&str> = allergens
+            .iter()
+            .map(|a| by_allergen.get(a).unwrap().iter().next().unwrap())
+            .copied()
+            .collect();
+        words.join(",")
+    };
+    println!("part1 {}", part1);
+    println!("part2 {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1572,6 +1637,7 @@ fn main() -> Result<()> {
         18 => day18(&input),
         19 => day19(&input),
         20 => day20(&input),
+        21 => day21(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
