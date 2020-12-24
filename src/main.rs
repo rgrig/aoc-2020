@@ -1613,6 +1613,62 @@ fn day21(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn d22_go(cards: &mut Vec<VecDeque<usize>>, recurse: bool) {
+    let mut seen: HashSet<Vec<VecDeque<usize>>> = HashSet::new();
+    while !cards[0].is_empty() && !cards[1].is_empty() {
+        if seen.contains(cards) {
+            cards[1].clear();
+            return;
+        }
+        seen.insert(cards.clone());
+        let c: [usize; 2] = [cards[0].pop_front().unwrap(), cards[1].pop_front().unwrap()];
+        let winner = if recurse && c[0] <= cards[0].len() && c[1] <= cards[1].len() {
+            let mut cards_copy: Vec<VecDeque<usize>> = vec![];
+            for i in 0..2 {
+                cards_copy.push(cards[i].iter().take(c[i]).copied().collect());
+            }
+            d22_go(&mut cards_copy, recurse);
+            if cards_copy[0].is_empty() {
+                1
+            } else {
+                0
+            }
+        } else if c[0] < c[1] {
+            1
+        } else {
+            0
+        };
+        cards[winner].push_back(c[winner]);
+        cards[winner].push_back(c[1 - winner]);
+    }
+}
+
+fn d22_solve(cards: &Vec<Vec<usize>>, recurse: bool) -> usize {
+    let mut cards_copy: Vec<VecDeque<usize>> =
+        cards.iter().map(|h| h.iter().copied().collect()).collect();
+    d22_go(&mut cards_copy, recurse);
+    let mut ans: usize = 0;
+    for hand in &cards_copy {
+        for i in 0..hand.len() {
+            ans += (hand.len() - i) * hand[i];
+        }
+    }
+    ans
+}
+
+fn day22(input: &str) -> Result<()> {
+    let cards: Vec<Vec<usize>> = input
+        .trim()
+        .split("\n\n")
+        .map(|h| h.lines().skip(1).map(|c| c.parse().unwrap()).collect())
+        .collect();
+    let part1 = d22_solve(&cards, false);
+    println!("part1: {}", part1);
+    let part2 = d22_solve(&cards, true);
+    println!("part2: {}", part2);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1638,6 +1694,7 @@ fn main() -> Result<()> {
         19 => day19(&input),
         20 => day20(&input),
         21 => day21(&input),
+        22 => day22(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
