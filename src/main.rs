@@ -1794,6 +1794,35 @@ fn day24(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn day25(input: &str) -> Result<()> {
+    let (sa, sb) = {
+        let mut i = input.split_whitespace();
+        let sa: i64 = i.next().unwrap().parse().unwrap();
+        let sb: i64 = i.next().unwrap().parse().unwrap();
+        (sa, sb)
+    };
+    let m = 20201227;
+    let a = {
+        let mut a = 0;
+        {
+            let mut x = 1;
+            while x != sa {
+                a += 1;
+                x *= 7;
+                x %= m;
+            }
+        }
+        a
+    };
+    let mut sab = sb;
+    for _ in 1..a {
+        sab *= sb;
+        sab %= m;
+    }
+    println!("sab {}", sab);
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1822,6 +1851,7 @@ fn main() -> Result<()> {
         22 => day22(&input),
         23 => day23(&input),
         24 => day24(&input),
+        25 => day25(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
