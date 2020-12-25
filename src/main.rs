@@ -1731,6 +1731,69 @@ fn day23(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn day24(input: &str) -> Result<()> {
+    let delta = [
+        ("e", 2, 0),
+        ("se", 1, -1),
+        ("sw", -1, -1),
+        ("w", -2, 0),
+        ("nw", -1, 1),
+        ("ne", 1, 1),
+    ];
+    let mut black: HashSet<(i32, i32)> = HashSet::new();
+    for line in input.lines() {
+        let mut x = 0;
+        let mut y = 0;
+        let mut i = 0;
+        while i < line.len() {
+            for (s, dx, dy) in &delta {
+                if line[i..].starts_with(s) {
+                    x += dx;
+                    y += dy;
+                    i += s.len();
+                    break;
+                }
+            }
+        }
+        if black.contains(&(x, y)) {
+            black.remove(&(x, y));
+        } else {
+            black.insert((x, y));
+        }
+    }
+    println!("part1: {}", black.len());
+    for _ in 0..100 {
+        let mut new_black: HashSet<(i32, i32)> = HashSet::new();
+        let look_at: HashSet<(i32, i32)> = black
+            .iter()
+            .flat_map(|(x, y)| {
+                delta
+                    .iter()
+                    .map(|(_, dx, dy)| (x + dx, y + dy))
+                    .collect::<Vec<(i32, i32)>>()
+            })
+            .chain(black.iter().cloned())
+            .collect();
+        for (x, y) in look_at {
+            let neighbors = delta
+                .iter()
+                .filter(|(_, dx, dy)| black.contains(&(x + dx, y + dy)))
+                .count();
+            let b = if black.contains(&(x, y)) {
+                1 <= neighbors && neighbors <= 2
+            } else {
+                neighbors == 2
+            };
+            if b {
+                new_black.insert((x, y));
+            }
+        }
+        black = new_black;
+    }
+    println!("part2: {}", black.len());
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1758,6 +1821,7 @@ fn main() -> Result<()> {
         21 => day21(&input),
         22 => day22(&input),
         23 => day23(&input),
+        24 => day24(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())
