@@ -1669,6 +1669,68 @@ fn day22(input: &str) -> Result<()> {
     Ok(())
 }
 
+fn d23_go(perm: &Vec<usize>, m: usize, n: usize) -> Vec<usize> {
+    let mut next: Vec<usize> = vec![n; n];
+    let mut prev: Vec<usize> = vec![n; n];
+    {
+        let mut pi: Vec<usize> = perm.iter().map(|x| x - 1).collect();
+        for i in pi.len()..n {
+            pi.push(i);
+        }
+        for i in 0..n {
+            next[pi[i]] = pi[(i + 1) % n];
+        }
+        for i in 0..n {
+            prev[next[i]] = i
+        }
+    }
+    let mut c0 = perm[0] - 1;
+    for _ in 0..m {
+        let c1 = next[c0];
+        let c2 = next[c1];
+        let c3 = next[c2];
+        let mut d = c0;
+        while {
+            d = (d + n - 1) % n;
+            d == c1 || d == c2 || d == c3
+        } {}
+        next[c0] = next[c3];
+        prev[next[c0]] = c0;
+        prev[c1] = d;
+        next[c3] = next[d];
+        next[prev[c1]] = c1;
+        prev[next[c3]] = c3;
+        c0 = next[c0];
+    }
+    let mut ans: Vec<usize> = vec![];
+    c0 = 0;
+    for _ in 1..n {
+        c0 = next[c0];
+        ans.push(c0 + 1);
+    }
+    ans
+}
+
+fn day23(input: &str) -> Result<()> {
+    let permutation: Vec<usize> = input
+        .trim()
+        .chars()
+        .map(|c| String::from(c).parse().unwrap())
+        .collect();
+    let part1 = d23_go(&permutation, 100, permutation.len());
+    let part2 = d23_go(&permutation, 10_000_000, 1_000_000);
+    println!(
+        "part1: {}",
+        part1
+            .iter()
+            .map(|x| format!("{}", x))
+            .collect::<Vec<String>>()
+            .join("")
+    );
+    println!("part2: {}", (part2[0] as u64) * (part2[1] as u64));
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Cli::from_args();
     let input = std::fs::read_to_string(&args.input_file)?;
@@ -1695,6 +1757,7 @@ fn main() -> Result<()> {
         20 => day20(&input),
         21 => day21(&input),
         22 => day22(&input),
+        23 => day23(&input),
         _ => {
             println!("unknown day ({})", args.day_number);
             Ok(())

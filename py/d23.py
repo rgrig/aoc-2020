@@ -7,7 +7,7 @@ state = [9,6,3,2,7,5,4,8,1]
 
 M = max(state)
 S = set(state)
-for _ in range(3):
+for _ in range(100):
   destination = state[0] - 1
   if destination not in S:
     destination = M
@@ -17,7 +17,7 @@ for _ in range(3):
       destination = M
   i = state.index(destination) + 1
   state = state[4:i]+ state[1:4] + state[i:] + [state[0]]
-  print(state)
+  #print(state)
 i = state.index(1)
 state = state[i+1:] + state[:i]
 N = len(state)

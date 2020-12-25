@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from collections import defaultdict
-import sys
 
 inp = [9,6,3,2,7,5,4,8,1]
 #inp = [3,8,9,1,2,5,4,6,7]
@@ -39,4 +37,3 @@ c0 = 1
 c1 = nxt[c0]
 c2 = nxt[c1]
 print(c1, c2)
-
